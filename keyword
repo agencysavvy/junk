@@ -1,0 +1,76 @@
+function main() {
+  
+let tabName = '';
+let keywordSheet = SpreadsheetApp.openByUrl('');
+let sqrSheet = SpreadsheetApp.openByUrl('');  
+let dsaSheet = SpreadsheetApp.openByUrl('');
+
+
+  
+// don't change code below this line ---------  
+
+
+
+// Set the URLs of the Google Sheets files
+var sheetUrls = [
+  keywordSheet.getUrl(),
+  sqrSheet.getUrl(),
+  dsaSheet.getUrl()
+];
+  
+for (var i = 0; i < sheetUrls.length; i++) {
+  var ss = SpreadsheetApp.openByUrl(sheetUrls[i]);
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet) {
+    sheet = ss.insertSheet(tabName);
+  }
+}
+  
+let today = new Date();
+let date91DaysAgo = new Date();
+date91DaysAgo.setDate(today.getDate() - 91);
+let formatted91 = Utilities.formatDate(date91DaysAgo, "GMT", "yyyy-MM-dd");
+let formattedToday = Utilities.formatDate(today, "GMT", "yyyy-MM-dd");
+let dateRange = formatted91 + " AND " + formattedToday
+
+
+let kw = AdsApp.report(`
+  SELECT ad_group_criterion.keyword.text, campaign.name, 
+  metrics.impressions, metrics.clicks, metrics.cost_micros, 
+  metrics.conversions, metrics.conversions_value
+  
+  FROM keyword_view 
+  WHERE segments.date BETWEEN "` + formatted91 + `" AND "` + formattedToday +
+  `"
+  AND metrics.impressions > 0
+  AND campaign.advertising_channel_type = "SEARCH"
+`); // impr>0
+kw.exportToSheet(keywordSheet.getSheetByName(tabName));
+
+
+let sqr = AdsApp.report(`
+  SELECT search_term_view.search_term, search_term_view.status, campaign.name,
+  metrics.impressions, metrics.clicks, metrics.cost_micros, 
+  metrics.conversions, metrics.conversions_value
+  FROM search_term_view
+  WHERE segments.date BETWEEN "` + formatted91 + `" AND "` + formattedToday +
+  `"
+  AND metrics.cost_micros > 5000000
+  AND campaign.advertising_channel_type = "SEARCH"
+`); // cost >$5
+sqr.exportToSheet(sqrSheet.getSheetByName(tabName)); 
+
+
+let dsa = AdsApp.report(`
+  SELECT dynamic_search_ads_search_term_view.search_term, campaign.name, 
+  metrics.impressions, metrics.clicks, metrics.cost_micros, 
+  metrics.conversions, metrics.conversions_value, 
+  dynamic_search_ads_search_term_view.has_matching_keyword, dynamic_search_ads_search_term_view.has_negative_keyword, 
+  dynamic_search_ads_search_term_view.has_negative_url, dynamic_search_ads_search_term_view.landing_page 
+  FROM dynamic_search_ads_search_term_view 
+  WHERE segments.date DURING LAST_30_DAYS AND metrics.clicks > 0
+  `); // clicks>0
+dsa.exportToSheet(dsaSheet.getSheetByName(tabName)) 
+
+} // end main
+                       
